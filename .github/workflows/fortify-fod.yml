@@ -1,0 +1,72 @@
+name: Fortify on Demand
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  scan:
+    name: SAST and SCA scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    env:
+      FOD_URL: ${{ vars.FOD_URL }}
+      FOD_CLIENT_ID: ${{ secrets.FOD_CLIENT_ID }}
+      FOD_CLIENT_SECRET: ${{ secrets.FOD_CLIENT_SECRET }}
+      FOD_RELEASE: ${{ github.repository }}:${{ github.ref_name }}
+      FCLI_BOOTSTRAP_VERSION: v3.18.0
+      DO_SETUP: "true"
+      DO_SAST_SCAN: "true"
+      DO_SCA_SCAN: "true"
+      DO_WAIT: "true"
+      DO_RELEASE_SUMMARY: "true"
+      DO_SAST_EXPORT: "true"
+      DO_CHECK_POLICY: "true"
+      SOURCE_DIR: ${{ github.workspace }}
+      PACKAGE_EXTRA_OPTS: "-bt mvn"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "8"
+          cache: maven
+
+      - name: Configure FoD setup options
+        env:
+          FOD_APP_OWNER: ${{ vars.FOD_APP_OWNER }}
+        run: |
+          setup_extra_opts="--app-type Web --app-criticality Medium --sdlc-status Development --technology-stack Java --language-level 8"
+
+          if [[ -n "${FOD_APP_OWNER}" ]]; then
+            setup_extra_opts="${setup_extra_opts} --app-owner \"${FOD_APP_OWNER}\""
+          fi
+
+          {
+            echo "SETUP_EXTRA_OPTS<<EOF"
+            echo "${setup_extra_opts}"
+            echo "EOF"
+          } >> "${GITHUB_ENV}"
+
+      - name: Create Maven dependency tree
+        run: mvn -B -DskipTests dependency:tree -DoutputType=text -DoutputFile=maven-dependency-tree.txt
+
+      - name: Run Fortify on Demand scan
+        uses: fortify/github-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

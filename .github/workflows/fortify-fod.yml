@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 360
 
     env:
-      FOD_URL: ${{ vars.FOD_URL }}
+      FOD_URL: ${{ secrets.FOD_URL }}
       FOD_CLIENT_ID: ${{ secrets.FOD_CLIENT_ID }}
       FOD_CLIENT_SECRET: ${{ secrets.FOD_CLIENT_SECRET }}
       FOD_RELEASE: ${{ github.repository }}:${{ github.ref_name }}

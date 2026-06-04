@@ -48,6 +48,11 @@ jobs:
           api_scheme_type="${FOD_DAST_API_SCHEME_TYPE:-HTTPS}"
           api_host="${FOD_DAST_API_HOST:-petstore.swagger.io}"
           api_service_path="${FOD_DAST_API_SERVICE_PATH:-/}"
+          api_definition_file="swagger.json"
+
+          curl --fail --silent --show-error --location \
+            "${api_definition_url}" \
+            --output "${api_definition_file}"
 
           fcli fod session login \
             --url "${FOD_URL}" \
@@ -79,7 +84,7 @@ jobs:
             --assessment-type "${FOD_DAST_ASSESSMENT_TYPE:-DAST Automated}"
             --frequency "${FOD_DAST_ENTITLEMENT_FREQUENCY:-Subscription}"
             --type "${FOD_DAST_API_TYPE:-OpenApi}"
-            --url "${api_definition_url}"
+            --file "${api_definition_file}"
             --scheme-type "${api_scheme_type}"
             --host "${api_host}"
             --service-path "${api_service_path}"
@@ -116,5 +121,6 @@ jobs:
         with:
           name: fod-dast-scan
           path: |
+            swagger.json
             dast-scan.json
             dast-scans-in-progress.json

@@ -1,0 +1,112 @@
+name: Fortify on Demand DAST
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dast:
+    name: DAST automated scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      FOD_URL: ${{ secrets.FOD_URL }}
+      FOD_CLIENT_ID: ${{ secrets.FOD_CLIENT_ID }}
+      FOD_CLIENT_SECRET: ${{ secrets.FOD_CLIENT_SECRET }}
+      FOD_RELEASE: ${{ github.repository }}:${{ github.ref_name }}
+      FOD_APP_OWNER: ${{ vars.FOD_APP_OWNER }}
+      FOD_DAST_SITE_URL: ${{ vars.FOD_DAST_SITE_URL }}
+      FOD_DAST_ASSESSMENT_TYPE: ${{ vars.FOD_DAST_ASSESSMENT_TYPE }}
+      FOD_DAST_ENTITLEMENT_FREQUENCY: ${{ vars.FOD_DAST_ENTITLEMENT_FREQUENCY }}
+      FOD_DAST_ENVIRONMENT: ${{ vars.FOD_DAST_ENVIRONMENT }}
+      FOD_DAST_TIMEZONE: ${{ vars.FOD_DAST_TIMEZONE }}
+      FOD_DAST_TIMEBOX: ${{ vars.FOD_DAST_TIMEBOX }}
+      FCLI_BOOTSTRAP_VERSION: v3.18.0
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Fortify CLI
+        uses: fortify/github-action/setup@v3
+        with:
+          fcli: bootstrapped
+
+      - name: Start FoD DAST automated scan
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${FOD_DAST_SITE_URL}" ]]; then
+            echo "FOD_DAST_SITE_URL repository variable is required."
+            exit 1
+          fi
+
+          fcli fod session login \
+            --url "${FOD_URL}" \
+            --client-id "${FOD_CLIENT_ID}" \
+            --client-secret "${FOD_CLIENT_SECRET}"
+
+          trap 'fcli fod session logout || true' EXIT
+
+          release_create=(
+            fcli fod release create
+            --skip-if-exists
+            --auto-required-attrs
+            --status Development
+            --app-type Web
+            --app-criticality Medium
+          )
+
+          if [[ -n "${FOD_APP_OWNER}" ]]; then
+            release_create+=(--app-owner "${FOD_APP_OWNER}")
+          fi
+
+          release_create+=("${FOD_RELEASE}")
+          "${release_create[@]}"
+
+          dast_setup=(
+            fcli fod dast-scan setup-website
+            --rel "${FOD_RELEASE}"
+            --skip-if-exists
+            --assessment-type "${FOD_DAST_ASSESSMENT_TYPE:-DAST Automated}"
+            --frequency "${FOD_DAST_ENTITLEMENT_FREQUENCY:-Subscription}"
+            --site-url "${FOD_DAST_SITE_URL}"
+            --environment "${FOD_DAST_ENVIRONMENT:-External}"
+            --timezone "${FOD_DAST_TIMEZONE:-UTC}"
+          )
+
+          if [[ -n "${FOD_DAST_TIMEBOX}" ]]; then
+            dast_setup+=(--timebox "${FOD_DAST_TIMEBOX}")
+          fi
+
+          "${dast_setup[@]}"
+
+          fcli fod dast-scan list \
+            --rel "${FOD_RELEASE}" \
+            --query "analysisStatusType=='InProgress' || analysisStatusType=='Waiting' || analysisStatusType=='Paused'" \
+            -o json > dast-scans-in-progress.json
+
+          if [[ "$(jq 'length' dast-scans-in-progress.json)" -gt 0 ]]; then
+            echo "A DAST scan is already in progress, waiting, or paused for ${FOD_RELEASE}."
+            cat dast-scans-in-progress.json
+            exit 1
+          fi
+
+          fcli fod dast-scan start \
+            --rel "${FOD_RELEASE}" \
+            --validate-entitlement \
+            -o json > dast-scan.json
+
+          cat dast-scan.json
+
+      - name: Upload DAST scan metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: fod-dast-scan
+          path: |
+            dast-scan.json
+            dast-scans-in-progress.json

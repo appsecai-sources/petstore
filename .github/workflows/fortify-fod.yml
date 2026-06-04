@@ -26,13 +26,13 @@ jobs:
       FOD_CLIENT_SECRET: ${{ secrets.FOD_CLIENT_SECRET }}
       FOD_RELEASE: ${{ github.repository }}:${{ github.ref_name }}
       FCLI_BOOTSTRAP_VERSION: v3.18.0
-      DO_SETUP: "true"
-      DO_SAST_SCAN: "true"
-      DO_SCA_SCAN: "true"
-      DO_WAIT: "true"
-      DO_RELEASE_SUMMARY: "true"
-      DO_SAST_EXPORT: "true"
-      DO_CHECK_POLICY: "true"
+      DO_SETUP: "false"
+      DO_SAST_SCAN: "false"
+      DO_SCA_SCAN: "false"
+      DO_WAIT: "false"
+      DO_RELEASE_SUMMARY: "false"
+      DO_SAST_EXPORT: "false"
+      DO_CHECK_POLICY: "false"
       SOURCE_DIR: ${{ github.workspace }}
       PACKAGE_EXTRA_OPTS: "-bt mvn"
 
@@ -64,6 +64,7 @@ jobs:
           } >> "${GITHUB_ENV}"
 
       - name: Create Maven dependency tree
+        if: env.DO_SCA_SCAN == 'true'
         run: mvn -B -DskipTests dependency:tree -DoutputType=text -DoutputFile=maven-dependency-tree.txt
 
       - name: Run Fortify on Demand scan

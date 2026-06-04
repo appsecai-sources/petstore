@@ -51,7 +51,7 @@ jobs:
         env:
           FOD_APP_OWNER: ${{ vars.FOD_APP_OWNER }}
         run: |
-          setup_extra_opts="--app-type Web --app-criticality Medium --sdlc-status Development --technology-stack JAVA/J2EE/Kotlin --language-level 8"
+          setup_extra_opts="--app-type Web --app-criticality Medium --sdlc-status Development --technology-stack JAVA/J2EE/Kotlin --language-level 8 --use-aviator"
 
           if [[ -n "${FOD_APP_OWNER}" ]]; then
             setup_extra_opts="${setup_extra_opts} --app-owner \"${FOD_APP_OWNER}\""

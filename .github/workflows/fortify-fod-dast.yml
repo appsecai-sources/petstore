@@ -18,7 +18,9 @@ jobs:
       FOD_CLIENT_SECRET: ${{ secrets.FOD_CLIENT_SECRET }}
       FOD_RELEASE: ${{ github.repository }}:${{ github.ref_name }}
       FOD_APP_OWNER: ${{ vars.FOD_APP_OWNER }}
-      FOD_DAST_SITE_URL: ${{ vars.FOD_DAST_SITE_URL }}
+      FOD_DAST_API_DEFINITION_URL: ${{ vars.FOD_DAST_API_DEFINITION_URL }}
+      FOD_DAST_API_TYPE: ${{ vars.FOD_DAST_API_TYPE }}
+      FOD_DAST_API_URL: ${{ vars.FOD_DAST_API_URL }}
       FOD_DAST_ASSESSMENT_TYPE: ${{ vars.FOD_DAST_ASSESSMENT_TYPE }}
       FOD_DAST_ENTITLEMENT_FREQUENCY: ${{ vars.FOD_DAST_ENTITLEMENT_FREQUENCY }}
       FOD_DAST_ENVIRONMENT: ${{ vars.FOD_DAST_ENVIRONMENT }}
@@ -40,10 +42,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ -z "${FOD_DAST_SITE_URL}" ]]; then
-            echo "FOD_DAST_SITE_URL repository variable is required."
-            exit 1
-          fi
+          api_definition_url="${FOD_DAST_API_DEFINITION_URL:-https://petstore.swagger.io/v2/swagger.json}"
+          api_url="${FOD_DAST_API_URL:-https://petstore.swagger.io/}"
 
           fcli fod session login \
             --url "${FOD_URL}" \
@@ -69,12 +69,14 @@ jobs:
           "${release_create[@]}"
 
           dast_setup=(
-            fcli fod dast-scan setup-website
+            fcli fod dast-scan setup-api
             --rel "${FOD_RELEASE}"
             --skip-if-exists
             --assessment-type "${FOD_DAST_ASSESSMENT_TYPE:-DAST Automated}"
             --frequency "${FOD_DAST_ENTITLEMENT_FREQUENCY:-Subscription}"
-            --site-url "${FOD_DAST_SITE_URL}"
+            --type "${FOD_DAST_API_TYPE:-OpenApi}"
+            --url "${api_definition_url}"
+            --api-url "${api_url}"
             --environment "${FOD_DAST_ENVIRONMENT:-External}"
             --timezone "${FOD_DAST_TIMEZONE:-UTC}"
           )
